@@ -1,0 +1,16 @@
+Things that you need to know to use this app.
+1. Import libs:
+"pip install opencv-python flask ultralytics"
+or
+"python -m pip install opencv-python flask ultralytics"
+
+2. YOLO file is included, but this code can be modified for diferent YOLO files as well.
+
+3. My computer have NVIDIA GPU so I used "cuda" but if you can`t you can just comment 5th line or try to calibrate PyTorch for your 
+CUDA version (my version was 11.6 so it worked with CUDA 11.8 
+"pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118")
+
+4. In 8 line change cv2 video capturing channel to the one that you need (planning in the future make it multiple chanels)
+
+5. Mobile version not yet prepared for the usage, but will be soon. Also the streem can be seen on the local network with the provided 
+link.
