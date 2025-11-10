@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">DroneView</string>
+    <string name="tip">000.000.000.000:00000</string>
+    <string name="go">Go</string>
+</resources>
