@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<body>
+<h2>Live DJI Stream</h2>
+<img id="video" width="800">
+
+<script>
+const ws = new WebSocket("ws://localhost:8000/ws");
+ws.binaryType = "arraybuffer";
+
+ws.onmessage = (event) => {
+    const blob = new Blob([event.data], {type: "image/jpeg"});
+    document.getElementById("video").src = URL.createObjectURL(blob);
+};
+</script>
+</body>
+</html>

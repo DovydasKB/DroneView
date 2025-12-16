@@ -1,0 +1,15 @@
+logLevel: info
+
+rtmp: yes
+rtmpAddress: :1935
+
+hls: yes
+hlsAddress: :8888
+hlsAllowOrigins: ['*']
+
+hlsAlwaysRemux: yes
+
+
+paths:
+  "~^.*$":
+    source: publisher
