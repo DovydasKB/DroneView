@@ -1,0 +1,4 @@
+In terminal recomended to put : pip install ultralytics opencv-python fastapi uvicorn numpy
+Also with cudos, need to check what kind of GPU your computer has then acordigly to that
+install torch version, otherwise it will work on cpu.
+In my case: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118

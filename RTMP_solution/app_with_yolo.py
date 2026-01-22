@@ -18,10 +18,8 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 import uvicorn
 from ultralytics import YOLO
 
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("DroneApp")
-
 
 HERE = Path(__file__).resolve().parent
 MEDIAMTX_BIN = HERE / ("mediamtx.exe" if os.name == "nt" else "mediamtx")
@@ -45,11 +43,21 @@ paths:
     source: publisher
 """.lstrip()
 
-DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
-logger.info(f"Using device: {DEVICE}")
+if torch.cuda.is_available():
+    gpu_name = torch.cuda.get_device_name(0)
+    logger.info(f"GPU Found: {gpu_name}")
+    DEVICE = "cuda:0"
+else:
+    logger.warning("GPU not found. Running on CPU.")
+    DEVICE = "cpu"
 
 GPU_LOCK = threading.Lock()
-model = YOLO("yolov8n.pt").to(DEVICE)
+if os.path.exists("best.pt"):
+    logger.info("Loading Custom Airsoft Model (best.pt)...")
+    model = YOLO("best.pt").to(DEVICE)
+else:
+    logger.warning("Custom model 'best.pt' not found! Using standard YOLOv8n.")
+    model = YOLO("yolov8n.pt").to(DEVICE)
 
 
 class VideoStreamer:
@@ -62,7 +70,7 @@ class VideoStreamer:
         self.raw_frame = None
         self.jpeg_bytes = None
 
-        self.detect_interval = 0.2
+        self.detect_interval = 0.1
         self.last_ai_time = 0.0
         self.detections = []
 
@@ -107,26 +115,44 @@ class VideoStreamer:
                     frame_to_process = self.raw_frame.copy()
 
             if frame_to_process is None:
-                time.sleep(0.1)
+                time.sleep(0.02)
                 continue
 
             now = time.time()
             if now - self.last_ai_time > self.detect_interval:
                 try:
                     with GPU_LOCK:
-                        results = model(frame_to_process, imgsz=640, conf=0.4,
-                                        classes=[0], verbose=False)
+                        results = model.track(
+                            frame_to_process,
+                            imgsz=640,
+                            conf=0.5,
+                            classes=[0],
+                            persist=True,
+                            tracker="bytetrack.yaml",
+                            verbose=False
+                        )
                     self.detections = results[0].boxes
                     self.last_ai_time = now
                 except Exception as e:
                     logger.error(f"AI Error: {e}")
 
-            if self.detections:
+            # Drawing Logic
+            if self.detections is not None:
                 for box in self.detections:
+
                     x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
+
+                    track_id = int(box.id[0]) if box.id is not None else 0
+
+                    label = f"TARGET #{track_id}" if track_id > 0 else "TARGET"
+
                     cv2.rectangle(frame_to_process, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    cv2.putText(frame_to_process, "HUMAN", (x1, y1 - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+                    (w, h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
+                    cv2.rectangle(frame_to_process, (x1, y1 - 20), (x1 + w, y1), (0, 255, 0), -1)
+
+                    cv2.putText(frame_to_process, label, (x1, y1 - 5),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
 
             frame_resized = cv2.resize(frame_to_process, (854, 480))
             _, buffer = cv2.imencode('.jpg', frame_resized, [int(cv2.IMWRITE_JPEG_QUALITY), 60])
@@ -134,7 +160,7 @@ class VideoStreamer:
             with self.lock:
                 self.jpeg_bytes = buffer.tobytes()
 
-            time.sleep(0.03)
+            time.sleep(0.01)
 
     def generate(self):
         while self.running:
@@ -146,7 +172,6 @@ class VideoStreamer:
                        b'Content-Type: image/jpeg\r\n\r\n' + jpg + b'\r\n')
 
             time.sleep(0.04)
-
 
 
 streamers: Dict[str, VideoStreamer] = {}
@@ -251,7 +276,7 @@ def index():
         </style>
     </head>
     <body>
-        <h2>Drone Surveillance (YOLOv8 + CUDA)</h2>
+        <h2>Drone Surveillance</h2>
         <p>Active Device: {DEVICE}</p>
         <div class="grid">
             {grid_html}
